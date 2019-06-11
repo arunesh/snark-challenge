@@ -2,7 +2,9 @@ CXX ?= g++
 GENCODES ?= 60
 GENCODES = 61
 
-INCLUDE_DIRS = -I./src
+CUDA_FIXNUM="../../cuda-fixnum/src/"
+
+INCLUDE_DIRS = -I$(CUDA_FIXNUM)
 NVCC_FLAGS = -ccbin $(CXX) -std=c++11 -Xcompiler -Wall,-Wextra
 NVCC_OPT_FLAGS = -DNDEBUG
 NVCC_TEST_FLAGS = -lineinfo
