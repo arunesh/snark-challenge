@@ -41,6 +41,38 @@ struct mul_and_convert {
   }
 };
 
+template< typename fixnum >
+struct quad_mul_and_convert {
+
+  // redc may be worth trying over cios
+  typedef modnum_monty_cios<fixnum> modnum;
+  __device__ void mulFunc(fixnum &r, fixnum a, fixnum b, fixnum my_mod) {
+      modnum mod = modnum(my_mod);
+
+      fixnum sm;
+      mod.mul(sm, a, b);
+
+      fixnum s;
+      mod.from_modnum(s, sm);
+
+      r = s;
+  }
+ __device__ void operator()(fixnum &r0, fixnum &r1, fixnum a0,
+            fixnum a1, fixnum b0, fixnum b1, fixnum my_mod) {
+// Logic: 
+//  var a0_b0 = fq_mul(a.a0, b.a0);
+//  var a1_b1 = fq_mul(a.a1, b.a1);
+//  var a1_b0 = fq_mul(a.a1, b.a0);
+//  var a0_b1 = fq_mul(a.a0, b.a1);
+//  return {
+//    a0: fq_add(a0_b0, fq_mul(a1_b1, alpha)),
+//    a1: fq_add(a1_b0, a0_b1)
+//  };
+      mulFunc(r, a, b, my_mod);
+  }
+
+};
+
 template< int fn_bytes, typename fixnum_array >
 void print_fixnum_array(fixnum_array* res, int nelts) {
     int lrl = fn_bytes*nelts;
