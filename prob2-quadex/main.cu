@@ -68,7 +68,8 @@ struct quad_mul_and_convert {
 //    a0: fq_add(a0_b0, fq_mul(a1_b1, alpha)),
 //    a1: fq_add(a1_b0, a0_b1)
 //  };
-      mulFunc(r, a, b, my_mod);
+      fixnum a0_b0;
+      mulFunc(a0_b0, a, b, my_mod);
   }
 
 };
