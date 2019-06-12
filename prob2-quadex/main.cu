@@ -14,6 +14,13 @@ const unsigned int bytes_per_elem = 128;
 const unsigned int io_bytes_per_elem = 96;
 
 
+struct quad {
+  uint8_t* first;
+  uint8_t* second;
+}
+
+typedef struct quad quad;
+
 using namespace std;
 using namespace cuFIXNUM;
 
@@ -68,6 +75,51 @@ vector<uint8_t*> get_fixnum_array(fixnum_array* res, int nelts) {
       res_v.emplace_back(a);
     }
     return res_v;
+}
+
+template< int fn_bytes, typename word_fixnum, template <typename> class Func >
+std::vector<quad> compute_quad_product(std::vector<uint8_t*> a, std::vector<uint8_t*> b, uint8_t* input_m_base) {
+    typedef warp_fixnum<fn_bytes, word_fixnum> fixnum;
+    typedef fixnum_array<fixnum> fixnum_array;
+
+    int nelts = a.size();
+
+    uint8_t *input_a = new uint8_t[fn_bytes * nelts];
+    for (int i = 0; i < fn_bytes * nelts; ++i) {
+      input_a[i] = a[i/fn_bytes][i%fn_bytes];
+    }
+
+    uint8_t *input_b = new uint8_t[fn_bytes * nelts];
+    for (int i = 0; i < fn_bytes * nelts; ++i) {
+      input_b[i] = b[i/fn_bytes][i%fn_bytes];
+    }
+
+    uint8_t *input_m = new uint8_t[fn_bytes * nelts];
+    for (int i = 0; i < fn_bytes * nelts; ++i) {
+      input_m[i] = input_m_base[i%fn_bytes];
+    }
+
+    // TODO reuse modulus as a constant instead of passing in nelts times
+    fixnum_array *res, *in_a, *in_b, *inM;
+    in_a = fixnum_array::create(input_a, fn_bytes * nelts, fn_bytes);
+    in_b = fixnum_array::create(input_b, fn_bytes * nelts, fn_bytes);
+    inM = fixnum_array::create(input_m, fn_bytes * nelts, fn_bytes);
+    res = fixnum_array::create(nelts);
+
+    fixnum_array::template map<Func>(res, in_a, in_b, inM);
+
+    vector<uint8_t*> v_res = get_fixnum_array<fn_bytes, fixnum_array>(res, nelts);
+
+    //TODO to do stage 1 field arithmetic, instead of a map, do a reduce
+
+    delete in_a;
+    delete in_b;
+    delete inM;
+    delete res;
+    delete[] input_a;
+    delete[] input_b;
+    delete[] input_m;
+    return v_res;
 }
 
 
@@ -145,45 +197,33 @@ int main(int argc, char* argv[]) {
     size_t elts_read = fread((void *) &n, sizeof(size_t), 1, inputs);
     if (elts_read == 0) { break; }
 
-    std::vector<uint8_t*> x0;
-    for (size_t i = 0; i < n/2; ++i) {
-      x0.emplace_back(read_mnt_fq(inputs));
+    std::vector<quad> x0;
+    for (size_t i = 0; i < n; ++i) {
+      quad tmp;
+      tmp.first = read_mnt(fq(inputs));
+      tmp.second = read_mnt(fq(inputs));
+      x0.emplace_back(tmp);
     }
 
-    std::vector<uint8_t*> x1;
-    for (size_t i = 0; i < n/2; ++i) {
-      x1.emplace_back(read_mnt_fq(inputs));
+    std::vector<quad> x1;
+    for (size_t i = 0; i < n; ++i) {
+      quad tmp;
+      tmp.first = read_mnt(fq(inputs));
+      tmp.second = read_mnt(fq(inputs));
+      x1.emplace_back(tmp);
     }
 
-    std::vector<uint8_t*> res_x = compute_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0, x1, mnt4_modulus);
+    std::vector<quad> res_x = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0, x1, mnt4_modulus);
 
-    for (size_t i = 0; i < n/2; ++i) {
-      write_mnt_fq(res_x[i], outputs);
-    }
-
-    std::vector<uint8_t*> y0;
-    for (size_t i = 0; i < n/2; ++i) {
-      y0.emplace_back(read_mnt_fq(inputs));
-    }
-
-    std::vector<uint8_t*> y1;
-    for (size_t i = 0; i < n/2; ++i) {
-      y1.emplace_back(read_mnt_fq(inputs));
-    }
-
-    std::vector<uint8_t*> res_y = compute_product<bytes_per_elem, u64_fixnum, mul_and_convert>(y0, y1, mnt6_modulus);
-
-    for (size_t i = 0; i < n/2; ++i) {
-      write_mnt_fq(res_y[i], outputs);
+    for (size_t i = 0; i < n; ++i) {
+      write_mnt_fq(res_x[i].first, outputs);
+      write_mnt_fq(res_x[i].second, outputs);
     }
 
     for (size_t i = 0; i < n/2; ++i) {
       free(x0[i]);
       free(x1[i]);
-      free(y0[i]);
-      free(y1[i]);
       free(res_x[i]);
-      free(res_y[i]);
     }
 
   }
