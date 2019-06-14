@@ -304,6 +304,13 @@ uint8_t* read_mnt_fq(FILE* inputs) {
   return buf;
 }
 
+uint8_t* read_mnt_fq_noshift(FILE* inputs) {
+  uint8_t* buf = (uint8_t*)calloc(io_bytes_per_elem, sizeof(uint8_t));
+  // the input is montgomery representation x * 2^768 whereas cuda-fixnum expects x * 2^1024 so we shift over by (1024-768)/8 bytes
+  fread((void*)buf, io_bytes_per_elem*sizeof(uint8_t), 1, inputs);
+  return buf;
+}
+
 void write_mnt_fq(uint8_t* fq, FILE* outputs) {
   fwrite((void *) fq, io_bytes_per_elem * sizeof(uint8_t), 1, outputs);
 }
@@ -357,7 +364,7 @@ int main(int argc, char* argv[]) {
    }
    printf("\n");
   for (int i = 0; i < bytes_per_elem/2; i ++) {
-        //std::swap(mnt4_modulus[i], mnt4_modulus[bytes_per_elem - i - 1]);
+        std::swap(mnt4_modulus[i], mnt4_modulus[bytes_per_elem - i - 1]);
    }
    printf("After swapping MNT4: \n");
    for (int i = 0; i < bytes_per_elem; i ++) {
@@ -373,15 +380,15 @@ int main(int argc, char* argv[]) {
 
     for (size_t i = 0; i < n; ++i) {
       printf("cn: first ");
-      print_uint8_array(read_mnt_fq(canon_results), io_bytes_per_elem);
+      print_uint8_array(read_mnt_fq_noshift(canon_results), io_bytes_per_elem);
       write_mnt_fq(res_x.first[i], outputs);
       printf("us: first ");
-      print_uint8_array(res_x.first[i], bytes_per_elem);
+      print_uint8_array(res_x.first[i], io_bytes_per_elem);
       printf("cn: secon ");
-      print_uint8_array(read_mnt_fq(canon_results), io_bytes_per_elem);
+      print_uint8_array(read_mnt_fq_noshift(canon_results), io_bytes_per_elem);
       write_mnt_fq(res_x.second[i], outputs);
       printf("us: secon ");
-      print_uint8_array(res_x.second[i], bytes_per_elem);
+      print_uint8_array(res_x.second[i], io_bytes_per_elem);
     }
     printf("\n write finished.\n");
 
