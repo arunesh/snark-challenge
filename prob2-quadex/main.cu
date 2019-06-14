@@ -108,6 +108,28 @@ void print_fixnum_array(fixnum_array* res, int nelts) {
 }
 
 template< int fn_bytes, typename fixnum_array >
+vector<uint8_t*> get_fixnum_array_dyn(fixnum_array* res, int nelts) {
+    int lrl = fn_bytes*nelts;
+    uint8_t *local_results = (uint8_t*) malloc(lrl*sizeof(uint8_t));
+    int ret_nelts;
+    for (int i = 0; i < lrl; i++) {
+      local_results[i] = 0;
+    }
+    res->retrieve_all(local_results, fn_bytes*nelts, &ret_nelts);
+    vector<uint8_t*> res_v;
+    for (int n = 0; n < nelts; n++) {
+      uint8_t* a = (uint8_t*)malloc(fn_bytes*sizeof(uint8_t));
+      for (int i = 0; i < fn_bytes; i++) {
+        a[i] = local_results[n*fn_bytes + i];
+      }
+      res_v.emplace_back(a);
+    }
+    free(local_results);
+    return res_v;
+}
+
+
+template< int fn_bytes, typename fixnum_array >
 vector<uint8_t*> get_fixnum_array(fixnum_array* res, int nelts) {
     int lrl = fn_bytes*nelts;
     uint8_t local_results[lrl];
@@ -199,8 +221,6 @@ pair<vector<uint8_t*>, vector<uint8_t*> >
     fixnum_array::template map<add_num_convert>(out_a1, res_a1_b0, res_a0_b0, inM); 
 
 
-    vector<uint8_t*> v_res_a0 = get_fixnum_array<fn_bytes, fixnum_array>(out_a0, nelts);
-    vector<uint8_t*> v_res_a1 = get_fixnum_array<fn_bytes, fixnum_array>(out_a1, nelts);
 
     //TODO to do stage 1 field arithmetic, instead of a map, do a reduce
 
@@ -210,13 +230,16 @@ pair<vector<uint8_t*>, vector<uint8_t*> >
     delete res_a0_b1;
     delete res_a1_b0;
     delete res_a1_b1_alpha;
-    delete out_a0;
-    delete out_a1;
     delete[] input_a_a0;
     delete[] input_a_a1;
     delete[] input_b_a0;
     delete[] input_b_a1;
     delete[] input_m;
+
+    vector<uint8_t*> v_res_a0 = get_fixnum_array_dyn<fn_bytes, fixnum_array>(out_a0, nelts);
+    vector<uint8_t*> v_res_a1 = get_fixnum_array_dyn<fn_bytes, fixnum_array>(out_a1, nelts);
+    delete out_a0;
+    delete out_a1;
     return make_pair(v_res_a0, v_res_a1);
 }
 
@@ -318,9 +341,11 @@ int main(int argc, char* argv[]) {
     }
     printf("\n read y0_a1\n");
 
+    if (n > 65535) { 
 
     std::pair<std::vector<uint8_t*>, std::vector<uint8_t*> > res_x
                     = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0_a0, x0_a1, y0_a0, y0_a1, mnt4_modulus);
+
     printf("\n compute_quad_product done.\n");
 
 
@@ -331,12 +356,17 @@ int main(int argc, char* argv[]) {
     printf("\n write finished.\n");
 
     for (size_t i = 0; i < n; ++i) {
+      free(res_x.first[i]);
+      free(res_x.second[i]);
+    }
+    } else printf("\n Skipping for N = %d", n);
+    for (size_t i = 0; i < n; ++i) {
       free(x0_a0[i]);
       free(x0_a1[i]);
       free(y0_a0[i]);
       free(y0_a1[i]);
-      free(res_x.first[i]);
-      free(res_x.second[i]);
+      // free(res_x.first[i]);
+      // free(res_x.second[i]);
     }
 
   }

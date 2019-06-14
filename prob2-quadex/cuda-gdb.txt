@@ -1,0 +1,3 @@
+set args compute inputs outputs
+file main
+
