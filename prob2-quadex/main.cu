@@ -3,6 +3,7 @@
 #include <cassert>
 #include <vector>
 #include <utility>
+#include <algorithm>
 
 #include "fixnum/warp_fixnum.cu"
 #include "array/fixnum_array.h"
@@ -103,6 +104,13 @@ void print_fixnum_array(fixnum_array* res, int nelts) {
 
     for (int i = 0; i < lrl; i++) {
       printf("%i ", local_results[i]);
+    }
+    printf("\n");
+}
+
+void print_uint8_array(uint8_t* array, int size) {
+    for (int i = 0; i < size; i ++) {
+        printf("%02x", array[i]);
     }
     printf("\n");
 }
@@ -311,6 +319,7 @@ int main(int argc, char* argv[]) {
 
   auto inputs = fopen(argv[2], "r");
   auto outputs = fopen(argv[3], "w");
+  auto canon_results = fopen(argv[4], "r");
 
   size_t n;
 
@@ -341,7 +350,20 @@ int main(int argc, char* argv[]) {
     }
     printf("\n read y0_a1\n");
 
-    if (n > 65535) { 
+
+   printf("MNT4: \n");
+   for (int i = 0; i < bytes_per_elem; i ++) {
+        printf("%02x", mnt4_modulus[i]);
+   }
+   printf("\n");
+  for (int i = 0; i < bytes_per_elem/2; i ++) {
+        //std::swap(mnt4_modulus[i], mnt4_modulus[bytes_per_elem - i - 1]);
+   }
+   printf("After swapping MNT4: \n");
+   for (int i = 0; i < bytes_per_elem; i ++) {
+        printf("%02x", mnt4_modulus[i]);
+   }
+   printf("\n");
 
     std::pair<std::vector<uint8_t*>, std::vector<uint8_t*> > res_x
                     = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0_a0, x0_a1, y0_a0, y0_a1, mnt4_modulus);
@@ -350,26 +372,33 @@ int main(int argc, char* argv[]) {
 
 
     for (size_t i = 0; i < n; ++i) {
+      printf("cn: first ");
+      print_uint8_array(read_mnt_fq(canon_results), io_bytes_per_elem);
       write_mnt_fq(res_x.first[i], outputs);
+      printf("us: first ");
+      print_uint8_array(res_x.first[i], bytes_per_elem);
+      printf("cn: secon ");
+      print_uint8_array(read_mnt_fq(canon_results), io_bytes_per_elem);
       write_mnt_fq(res_x.second[i], outputs);
+      printf("us: secon ");
+      print_uint8_array(res_x.second[i], bytes_per_elem);
     }
     printf("\n write finished.\n");
 
-    for (size_t i = 0; i < n; ++i) {
-      free(res_x.first[i]);
-      free(res_x.second[i]);
-    }
-    } else printf("\n Skipping for N = %d", n);
     for (size_t i = 0; i < n; ++i) {
       free(x0_a0[i]);
       free(x0_a1[i]);
       free(y0_a0[i]);
       free(y0_a1[i]);
+      free(res_x.first[i]);
+      free(res_x.second[i]);
       // free(res_x.first[i]);
       // free(res_x.second[i]);
     }
 
   }
+
+  // diff 
 
   return 0;
 }

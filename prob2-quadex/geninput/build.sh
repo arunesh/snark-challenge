@@ -2,8 +2,8 @@
 mkdir build
 pushd build
   cmake -DMULTICORE=ON ..
-#  make -j12 main generate_inputs
-   make -j12 generate_inputs
+   make -j12 main generate_inputs
+#   make -j12 generate_inputs
 popd
-#mv build/libff/main .
+mv build/libff/main .
 mv build/libff/generate_inputs ..

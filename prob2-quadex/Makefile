@@ -1,6 +1,6 @@
 CXX ?= g++
 GENCODES ?= 60
-GENCODES = 37 
+GENCODES = 61 
 
 CUDA_FIXNUM="./src/"
 
@@ -27,7 +27,7 @@ bench/bench: bench/bench.cu
 bench: bench/bench
 
 main: main.cu
-	nvcc $(NVCC_OPT_FLAGS) $(NVCC_FLAGS) $(NVCC_DBG_FLAGS) $(GENCODES:%=--gpu-architecture=compute_%) $(GENCODES:%=--gpu-code=sm_%) $(INCLUDE_DIRS) $(NVCC_LIBS) -o $@ $<
+	nvcc $(NVCC_OPT_FLAGS) $(NVCC_FLAGS)  $(GENCODES:%=--gpu-architecture=compute_%) $(GENCODES:%=--gpu-code=sm_%) $(INCLUDE_DIRS) $(NVCC_LIBS) -o $@ $<
 
 .PHONY: clean
 clean:
