@@ -178,32 +178,37 @@ pair<vector<uint8_t*>, vector<uint8_t*> >
     res_a1_b0 = fixnum_array::create(nelts);
     res_a0_b1 = fixnum_array::create(nelts);
     res_a1_b1_alpha = fixnum_array::create(nelts);
-    out_a0 = fixnum_array::create(nelts);
-    out_a1 = fixnum_array::create(nelts);
 
     fixnum_array::template map<Func>(res_a0_b0, in_a_a0, in_b_a0, inM);
+    fixnum_array::template map<Func>(res_a0_b1, in_a_a0, in_b_a1, inM);
+    delete in_a_a0;
+
     fixnum_array::template map<Func>(res_a1_b1, in_a_a1, in_b_a1, inM);
     fixnum_array::template map<Func>(res_a1_b0, in_a_a1, in_b_a0, inM);
-    fixnum_array::template map<Func>(res_a0_b1, in_a_a0, in_b_a1, inM);
 
 
     fixnum_array::template map<mul_scalar_convert>(res_a1_b1_alpha, res_a1_b1, inM); 
+    delete in_a_a1;
+    delete in_b_a0;
+    delete in_b_a1;
+ 
+    out_a0 = fixnum_array::create(nelts);
+    out_a1 = fixnum_array::create(nelts);
+
     fixnum_array::template map<add_num_convert>(out_a0, res_a1_b1_alpha, res_a0_b0, inM); 
     fixnum_array::template map<add_num_convert>(out_a1, res_a1_b0, res_a0_b0, inM); 
+
 
     vector<uint8_t*> v_res_a0 = get_fixnum_array<fn_bytes, fixnum_array>(out_a0, nelts);
     vector<uint8_t*> v_res_a1 = get_fixnum_array<fn_bytes, fixnum_array>(out_a1, nelts);
 
     //TODO to do stage 1 field arithmetic, instead of a map, do a reduce
 
-    delete in_a_a0;
-    delete in_a_a1;
-    delete in_b_a0;
-    delete in_b_a1;
     delete inM;
     delete res_a0_b0;
     delete res_a1_b1;
     delete res_a0_b1;
+    delete res_a1_b0;
     delete res_a1_b1_alpha;
     delete out_a0;
     delete out_a1;
@@ -288,34 +293,42 @@ int main(int argc, char* argv[]) {
 
    while (true) {
     size_t elts_read = fread((void *) &n, sizeof(size_t), 1, inputs);
+    printf("\n N = %d\n", n);
     if (elts_read == 0) { break; }
 
     std::vector<uint8_t*> x0_a0;
     for (size_t i = 0; i < n; ++i) {
       x0_a0.emplace_back(read_mnt_fq(inputs));
     }
+    printf("\n read x0_a0\n");
     std::vector<uint8_t*> x0_a1;
     for (size_t i = 0; i < n; ++i) {
       x0_a1.emplace_back(read_mnt_fq(inputs));
     }
+    printf("\n read x0_a1\n");
 
     std::vector<uint8_t*> y0_a0;
     for (size_t i = 0; i < n; ++i) {
       y0_a0.emplace_back(read_mnt_fq(inputs));
     }
+    printf("\n read y0_a0\n");
     std::vector<uint8_t*> y0_a1;
     for (size_t i = 0; i < n; ++i) {
       y0_a1.emplace_back(read_mnt_fq(inputs));
     }
+    printf("\n read y0_a1\n");
 
 
     std::pair<std::vector<uint8_t*>, std::vector<uint8_t*> > res_x
                     = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0_a0, x0_a1, y0_a0, y0_a1, mnt4_modulus);
+    printf("\n compute_quad_product done.\n");
+
 
     for (size_t i = 0; i < n; ++i) {
       write_mnt_fq(res_x.first[i], outputs);
       write_mnt_fq(res_x.second[i], outputs);
     }
+    printf("\n write finished.\n");
 
     for (size_t i = 0; i < n; ++i) {
       free(x0_a0[i]);
