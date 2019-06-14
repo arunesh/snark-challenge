@@ -13,13 +13,7 @@
 const unsigned int bytes_per_elem = 128;
 const unsigned int io_bytes_per_elem = 96;
 
-
-struct quad {
-  uint8_t* first;
-  uint8_t* second;
-}
-
-typedef struct quad quad;
+const unsigned int alpha = 13;
 
 using namespace std;
 using namespace cuFIXNUM;
@@ -42,32 +36,46 @@ struct mul_and_convert {
 };
 
 template< typename fixnum >
-struct mul_scalar_convert {
+struct add_num_convert {
+	// redc may be worth trying over cios
+   typedef modnum_monty_cios<fixnum> modnum;
+    __device__ void operator()(fixnum &r, fixnum a, fixnum b) {
 
-  // redc may be worth trying over cios
-  typedef modnum_monty_cios<fixnum> modnum;
-  __device__ void mulFunc(fixnum &r, fixnum a, fixnum b, fixnum my_mod) {
       modnum mod = modnum(my_mod);
 
       fixnum sm;
-      mod.mul(sm, a, b);
+      mod.add(sm, a, b);
+      fixnum
 
       fixnum s;
       mod.from_modnum(s, sm);
 
       r = s;
+
+  }
+}
+
+template< typename fixnum >
+struct mul_scalar_convert {
+
+  // redc may be worth trying over cios
+  typedef modnum_monty_cios<fixnum> modnum;
+ __device__ void operator()(fixnum &r, fixnum a) {
+      modnum mod = modnum(my_mod);
+
+      fixnum sm;
+      mod.mul(sm, a, alpha_fixnum);
+      fixnum
+
+      fixnum s;
+      mod.from_modnum(s, sm);
+
+      r = s;
+
   }
 
- __device__ void operator()(fixnum &a0_b0, fixnum &a1_b1, fixnum &a1_b0, fixnum &a0_b1, fixnum a0,
-            fixnum a1, fixnum b0, fixnum b1, fixnum my_mod) {
-       mulFunc(a0_b0, a0, b0);
-       mulFunc(a1_b1, a1, b1);
-       mulFunc(a1_b0, a1, b0);
-       mulFunc(a0_b1, a0, b1);
-  }
-
- __device__ void operator()(fixnum &r0, fixnum &r1, fixnum a0,
-            fixnum a1, fixnum b0, fixnum b1, fixnum my_mod) {
+// __device__ void operator()(fixnum &r0, fixnum &r1, fixnum a0,
+//            fixnum a1, fixnum b0, fixnum b1, fixnum my_mod) {
 // Logic: 
 //  var a0_b0 = fq_mul(a.a0, b.a0);
 //  var a1_b1 = fq_mul(a.a1, b.a1);
@@ -77,9 +85,11 @@ struct mul_scalar_convert {
 //    a0: fq_add(a0_b0, fq_mul(a1_b1, alpha)),
 //    a1: fq_add(a1_b0, a0_b1)
 //  };
-      fixnum a0_b0;
-      mulFunc(a0_b0, a, b, my_mod);
-  }
+//     fixnum a0_b0;
+//      mulFunc(a0_b0, a, b, my_mod);
+//  }
+
+  static fixnum& alpha_fixnum = fixnum::wrap_fixnum(alpha);
 
 };
 
@@ -120,7 +130,8 @@ vector<uint8_t*> get_fixnum_array(fixnum_array* res, int nelts) {
 }
 
 template< int fn_bytes, typename word_fixnum, template <typename> class Func >
-std::vector<quad> compute_quad_product(std::vector<uint8_t*> a_a0,
+std::pair<std::vector<uint8_t*>, <std::vector<uint8_t*> >
+ compute_quad_product(std::vector<uint8_t*> a_a0,
 	       	std::vector<uint8_t*> a_a1,
 	       	std::vector<uint8_t*> b_a0,
 	       	std::vector<uint8_t*> b_a1, uint8_t* input_m_base) {
@@ -166,24 +177,40 @@ std::vector<quad> compute_quad_product(std::vector<uint8_t*> a_a0,
     res_a1_b1 = fixnum_array::create(nelts);
     res_a1_b0 = fixnum_array::create(nelts);
     res_a0_b1 = fixnum_array::create(nelts);
+    res_a1_b1_alpha = fixnum_array::create(nelts);
+    out_a0 = fixnum_array::create(nelts);
+    out_a1 = fixnum_array::create(nelts);
 
     fixnum_array::template map<Func>(res_a0_b0, in_a_a0, in_b_a0, inM);
     fixnum_array::template map<Func>(res_a1_b1, in_a_a1, in_b_a1, inM);
     fixnum_array::template map<Func>(res_a1_b0, in_a_a1, in_b_a0, inM);
     fixnum_array::template map<Func>(res_a0_b1, in_a_a0, in_b_a1, inM);
 
-    vector<uint8_t*> v_res = get_fixnum_array<fn_bytes, fixnum_array>(res, nelts);
+
+    fixnum_array::map<mul_scalar_convert>(res_a1_b1_alpha, res_a1_b1); 
+    fixnum_array::map<add_scalar_convert>(out_a0, res_a1_b1_alpha, res_a0_b0); 
+    fixnum_array::map<add_scalar_convert>(out_a1, res_a1_b0, res_a0_b0); 
+
+    vector<uint8_t*> v_res_a0 = get_fixnum_array<fn_bytes, fixnum_array>(out_a0, nelts);
+    vector<uint8_t*> v_res_a1 = get_fixnum_array<fn_bytes, fixnum_array>(out_a1, nelts);
 
     //TODO to do stage 1 field arithmetic, instead of a map, do a reduce
 
-    delete in_a;
-    delete in_b;
+    delete in_a_a0;
+    delete in_a_a1;
+    delete in_b_a0;
+    delete in_b_a1;
     delete inM;
-    delete res;
+    delete res_a0_b0;
+    delete res_a1_b1;
+    delete res_a0_b1;
+    delete res_a1_b1_alpha;
+    delete out_a0;
+    delete out_a1;
     delete[] input_a;
     delete[] input_b;
     delete[] input_m;
-    return v_res;
+    return make_pair(v_res_a0, v_res_a1);
 }
 
 
@@ -261,33 +288,40 @@ int main(int argc, char* argv[]) {
     size_t elts_read = fread((void *) &n, sizeof(size_t), 1, inputs);
     if (elts_read == 0) { break; }
 
-    std::vector<quad> x0;
+    std::vector<uint8_t*> x0_a0;
     for (size_t i = 0; i < n; ++i) {
-      quad tmp;
-      tmp.first = read_mnt(fq(inputs));
-      tmp.second = read_mnt(fq(inputs));
-      x0.emplace_back(tmp);
+      x0_a0.emplace_back(read_mnt(fq(inputs));
+    }
+    std::vector<uint8_t*> x0_a1;
+    for (size_t i = 0; i < n; ++i) {
+      x0_a1.emplace_back(read_mnt(fq(inputs));
     }
 
-    std::vector<quad> x1;
+    std::vector<uint8_t*> y0_a0;
     for (size_t i = 0; i < n; ++i) {
-      quad tmp;
-      tmp.first = read_mnt(fq(inputs));
-      tmp.second = read_mnt(fq(inputs));
-      x1.emplace_back(tmp);
+      y0_a0.emplace_back(read_mnt(fq(inputs));
+    }
+    std::vector<uint8_t*> y0_a1;
+    for (size_t i = 0; i < n; ++i) {
+      y0_a1.emplace_back(read_mnt(fq(inputs));
     }
 
-    std::vector<quad> res_x = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0, x1, mnt4_modulus);
+
+    std::pair<std::vector<uint8_t*>, <std::vector<uint8_t*> > res_x
+                    = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0_a0, x0_a1, y0_a0, y0_a1, mnt4_modulus);
 
     for (size_t i = 0; i < n; ++i) {
-      write_mnt_fq(res_x[i].first, outputs);
-      write_mnt_fq(res_x[i].second, outputs);
+      write_mnt_fq(res_x.first[i], outputs);
+      write_mnt_fq(res_x.second[i], outputs);
     }
 
-    for (size_t i = 0; i < n/2; ++i) {
-      free(x0[i]);
-      free(x1[i]);
-      free(res_x[i]);
+    for (size_t i = 0; i < n; ++i) {
+      free(x0_a0[i]);
+      free(x0_a1[i]);
+      free(y0_a0[i]);
+      free(y0_a1[i]);
+      free(res_x.first[i]);
+      free(res_x.second[i]);
     }
 
   }
