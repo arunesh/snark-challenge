@@ -342,27 +342,21 @@ int main(int argc, char* argv[]) {
     printf("\n N = %d\n", n);
     if (elts_read == 0) { break; }
 
+    printf("\n read x0_a0, x0_a1\n");
     std::vector<uint8_t*> x0_a0;
-    for (size_t i = 0; i < n; ++i) {
-      x0_a0.emplace_back(read_mnt_fq(inputs));
-    }
-    printf("\n read x0_a0\n");
     std::vector<uint8_t*> x0_a1;
     for (size_t i = 0; i < n; ++i) {
-      x0_a1.emplace_back(read_mnt_fq(inputs));
+      x0_a0.emplace_back(read_mnt_fq_2(inputs));
+      x0_a1.emplace_back(read_mnt_fq_2(inputs));
     }
-    printf("\n read x0_a1\n");
 
+    printf("\n read y0_a0, y0_a1\n");
     std::vector<uint8_t*> y0_a0;
-    for (size_t i = 0; i < n; ++i) {
-      y0_a0.emplace_back(read_mnt_fq(inputs));
-    }
-    printf("\n read y0_a0\n");
     std::vector<uint8_t*> y0_a1;
     for (size_t i = 0; i < n; ++i) {
-      y0_a1.emplace_back(read_mnt_fq(inputs));
+      y0_a0.emplace_back(read_mnt_fq_2(inputs));
+      y0_a1.emplace_back(read_mnt_fq_2(inputs));
     }
-    printf("\n read y0_a1\n");
 
 
    printf("MNT4: \n");
@@ -390,12 +384,12 @@ int main(int argc, char* argv[]) {
       print_uint8_array(read_mnt_fq_noshift(canon_results), io_bytes_per_elem);
       write_mnt_fq(res_x.first[i], outputs);
       printf("us: first ");
-      print_uint8_array(res_x.first[i], io_bytes_per_elem);
+      print_uint8_array(res_x.first[i], bytes_per_elem);
       printf("cn: secon ");
       print_uint8_array(read_mnt_fq_noshift(canon_results), io_bytes_per_elem);
       write_mnt_fq(res_x.second[i], outputs);
       printf("us: secon ");
-      print_uint8_array(res_x.second[i], io_bytes_per_elem);
+      print_uint8_array(res_x.second[i], bytes_per_elem);
     }
     printf("\n write finished.\n");
 
