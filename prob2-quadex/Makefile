@@ -6,7 +6,7 @@ GENCODES = 37
 CUDA_FIXNUM="./src/"
 
 INCLUDE_DIRS = -I$(CUDA_FIXNUM)
-NVCC_FLAGS = -ccbin $(CXX) -std=c++11 -Xcompiler -Wall,-Wextra -g -G
+NVCC_FLAGS = -ccbin $(CXX) -std=c++11 -Xcompiler -Wall,-Wextra
 NVCC_OPT_FLAGS = -DNDEBUG
 NVCC_TEST_FLAGS = -lineinfo
 NVCC_DBG_FLAGS = -g -G

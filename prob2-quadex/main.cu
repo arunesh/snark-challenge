@@ -65,13 +65,15 @@ struct mul_scalar_convert {
       modnum mod = modnum(my_mod);
 
       fixnum sm;
+      if (fixnum::layout::laneIdx() == 0) {
       mod.mul(sm, a, alpha_fixnum);
+      } else {
+         sm = a;
+      }
 
       fixnum s;
       mod.from_modnum(s, sm);
-
       r = s;
-
   }
 
 // __device__ void operator()(fixnum &r0, fixnum &r1, fixnum a0,
@@ -211,13 +213,13 @@ pair<vector<uint8_t*>, vector<uint8_t*> >
 
     fixnum_array::template map<Func>(res_a0_b0, in_a_a0, in_b_a0, inM);
     fixnum_array::template map<Func>(res_a0_b1, in_a_a0, in_b_a1, inM);
-    delete in_a_a0;
 
     fixnum_array::template map<Func>(res_a1_b1, in_a_a1, in_b_a1, inM);
     fixnum_array::template map<Func>(res_a1_b0, in_a_a1, in_b_a0, inM);
 
 
     fixnum_array::template map<mul_scalar_convert>(res_a1_b1_alpha, res_a1_b1, inM); 
+    delete in_a_a0;
     delete in_a_a1;
     delete in_b_a0;
     delete in_b_a1;
@@ -226,9 +228,11 @@ pair<vector<uint8_t*>, vector<uint8_t*> >
     out_a1 = fixnum_array::create(nelts);
 
     fixnum_array::template map<add_num_convert>(out_a0, res_a1_b1_alpha, res_a0_b0, inM); 
-    fixnum_array::template map<add_num_convert>(out_a1, res_a1_b0, res_a0_b0, inM); 
+    fixnum_array::template map<add_num_convert>(out_a1, res_a1_b0, res_a0_b1, inM); 
 
 
+    vector<uint8_t*> v_res_a0 = get_fixnum_array_dyn<fn_bytes, fixnum_array>(res_a0_b0, nelts);
+    vector<uint8_t*> v_res_a1 = get_fixnum_array_dyn<fn_bytes, fixnum_array>(out_a1, nelts);
 
     //TODO to do stage 1 field arithmetic, instead of a map, do a reduce
 
@@ -244,8 +248,6 @@ pair<vector<uint8_t*>, vector<uint8_t*> >
     delete[] input_b_a1;
     delete[] input_m;
 
-    vector<uint8_t*> v_res_a0 = get_fixnum_array_dyn<fn_bytes, fixnum_array>(out_a0, nelts);
-    vector<uint8_t*> v_res_a1 = get_fixnum_array_dyn<fn_bytes, fixnum_array>(out_a1, nelts);
     delete out_a0;
     delete out_a1;
     return make_pair(v_res_a0, v_res_a1);
@@ -358,23 +360,33 @@ int main(int argc, char* argv[]) {
       y0_a1.emplace_back(read_mnt_fq_2(inputs));
     }
 
+   printf("\n Input 0:\n");
+   print_uint8_array(x0_a0.front(), io_bytes_per_elem);
+   print_uint8_array(x0_a1.front(), io_bytes_per_elem);
+   printf("\n Input 1:\n");
+   print_uint8_array(y0_a0.front(), io_bytes_per_elem);
+   print_uint8_array(y0_a1.front(), io_bytes_per_elem);
 
-   printf("MNT4: \n");
-   for (int i = 0; i < bytes_per_elem; i ++) {
-        printf("%02x", mnt4_modulus[i]);
-   }
-   printf("\n");
-  for (int i = 0; i < bytes_per_elem/2; i ++) {
-        // std::swap(mnt4_modulus[i], mnt4_modulus[bytes_per_elem - i - 1]);
-   }
-   printf("After swapping MNT4: \n");
-   for (int i = 0; i < bytes_per_elem; i ++) {
-        printf("%02x", mnt4_modulus[i]);
-   }
-   printf("\n");
 
+//   printf("MNT4: \n");
+//   for (int i = 0; i < bytes_per_elem; i ++) {
+//        printf("%02x", mnt4_modulus[i]);
+//   }
+//   printf("\n");
+//  for (int i = 0; i < bytes_per_elem/2; i ++) {
+        ////// std::swap(mnt4_modulus[i], mnt4_modulus[bytes_per_elem - i - 1]);
+//   }
+//   printf("After swapping MNT4: \n");
+//   for (int i = 0; i < bytes_per_elem; i ++) {
+//        printf("%02x", mnt4_modulus[i]);
+//   }
+//   printf("\n");
+//
     std::pair<std::vector<uint8_t*>, std::vector<uint8_t*> > res_x
                     = compute_quad_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0_a0, x0_a1, y0_a0, y0_a1, mnt4_modulus);
+    std::vector<uint8_t*> res_x1 = compute_product<bytes_per_elem, u64_fixnum, mul_and_convert>(x0_a0, y0_a0, mnt4_modulus);
+    printf("\n SPECIAL PRODUCT \n");
+    print_uint8_array(res_x1.front(), bytes_per_elem);
 
     printf("\n compute_quad_product done.\n");
 
